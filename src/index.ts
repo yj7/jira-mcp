@@ -39,13 +39,20 @@ const server = new Server(
 const tools: Tool[] = [
   {
     name: 'get_issue',
-    description: 'Get details of a Jira issue by key (e.g., PROJ-123)',
+    description: 'Get details of a Jira issue by key (e.g., PROJ-123). Use the fields parameter to limit response size.',
     inputSchema: {
       type: 'object',
       properties: {
         issueKey: {
           type: 'string',
           description: 'The Jira issue key (e.g., PROJ-123)',
+        },
+        fields: {
+          type: 'array',
+          items: {
+            type: 'string',
+          },
+          description: 'Optional array of field names to retrieve (e.g., ["summary", "status", "description"]). If not provided, returns all fields.',
         },
       },
       required: ['issueKey'],
@@ -136,6 +143,24 @@ const tools: Tool[] = [
     },
   },
   {
+    name: 'delete_comment',
+    description: 'Delete a comment from a Jira issue',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        issueKey: {
+          type: 'string',
+          description: 'The Jira issue key (e.g., PROJ-123)',
+        },
+        commentId: {
+          type: 'string',
+          description: 'The comment ID to delete',
+        },
+      },
+      required: ['issueKey', 'commentId'],
+    },
+  },
+  {
     name: 'get_attachments',
     description: 'Get all attachments for a Jira issue, including metadata and download URLs',
     inputSchema: {
@@ -191,7 +216,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   try {
     switch (name) {
       case 'get_issue': {
-        const result = await jiraClient.getIssue(args.issueKey as string);
+        const result = await jiraClient.getIssue(
+          args.issueKey as string,
+          args.fields as string[] | undefined
+        );
         return {
           content: [
             {
@@ -256,6 +284,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const result = await jiraClient.addComment(
           args.issueKey as string,
           args.comment as string
+        );
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'delete_comment': {
+        const result = await jiraClient.deleteComment(
+          args.issueKey as string,
+          args.commentId as string
         );
         return {
           content: [
