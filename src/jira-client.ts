@@ -163,12 +163,8 @@ function textToADF(text: string): any {
       continue;
     }
 
-    // Handle empty lines
+    // Skip empty lines - JIRA will handle spacing between elements automatically
     if (line.trim() === '') {
-      content.push({
-        type: 'paragraph',
-        content: [],
-      });
       continue;
     }
 
