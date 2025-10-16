@@ -1,10 +1,10 @@
 {
-  "name": "jira-mcp-server",
+  "name": "@yashjhunjhunwala/jira-mcp-server",
   "version": "1.0.0",
   "description": "MCP server for Jira integration with attachment support",
   "type": "module",
   "bin": {
-    "jira-mcp": "./build/index.js"
+    "jira-mcp": "build/index.js"
   },
   "scripts": {
     "build": "tsc",

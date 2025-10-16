@@ -1,0 +1,18 @@
+# Source files
+src/
+tsconfig.json
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Development files
+node_modules/
+.git/
+.gitignore
+.claude/
+
+# Build artifacts (keep the build/ directory for npm)
+*.log
+npm-debug.log*
