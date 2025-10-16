@@ -126,7 +126,7 @@ const tools: Tool[] = [
   },
   {
     name: 'add_comment',
-    description: 'Add a comment to a Jira issue',
+    description: 'Add a comment to a Jira issue with optional file attachments',
     inputSchema: {
       type: 'object',
       properties: {
@@ -137,6 +137,13 @@ const tools: Tool[] = [
         comment: {
           type: 'string',
           description: 'Comment text',
+        },
+        attachments: {
+          type: 'array',
+          items: {
+            type: 'string',
+          },
+          description: 'Optional array of absolute file paths to attach to the comment',
         },
       },
       required: ['issueKey', 'comment'],
@@ -190,6 +197,24 @@ const tools: Tool[] = [
         },
       },
       required: ['attachmentId'],
+    },
+  },
+  {
+    name: 'add_attachment',
+    description: 'Upload and attach a file to a Jira issue',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        issueKey: {
+          type: 'string',
+          description: 'The Jira issue key (e.g., PROJ-123)',
+        },
+        filePath: {
+          type: 'string',
+          description: 'Absolute path to the file to attach',
+        },
+      },
+      required: ['issueKey', 'filePath'],
     },
   },
 ];
@@ -283,7 +308,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'add_comment': {
         const result = await jiraClient.addComment(
           args.issueKey as string,
-          args.comment as string
+          args.comment as string,
+          args.attachments as string[] | undefined
         );
         return {
           content: [
@@ -326,6 +352,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const result = await jiraClient.downloadAttachment(
           args.attachmentId as string,
           args.outputDir as string | undefined
+        );
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'add_attachment': {
+        const result = await jiraClient.uploadAttachment(
+          args.issueKey as string,
+          args.filePath as string
         );
         return {
           content: [

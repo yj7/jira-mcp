@@ -1,6 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 import * as fs from 'fs';
 import * as path from 'path';
+import FormData from 'form-data';
 
 /**
  * Parses inline formatting (bold, italic, strikethrough, code, links) in a text string
@@ -311,6 +312,19 @@ export interface AttachmentDownload {
   savedPath: string; // Path where the file was saved
 }
 
+export interface AttachmentUpload {
+  id: string;
+  filename: string;
+  author: {
+    displayName: string;
+    emailAddress?: string;
+  };
+  created: string;
+  size: number;
+  mimeType: string;
+  content: string; // URL to download the attachment
+}
+
 export class JiraClient {
   private client: AxiosInstance;
 
@@ -389,10 +403,32 @@ export class JiraClient {
     return { success: true, message: `Issue ${issueKey} updated successfully` };
   }
 
-  async addComment(issueKey: string, comment: string): Promise<any> {
+  async addComment(issueKey: string, comment: string, attachments?: string[]): Promise<any> {
+    // First, add the comment
     const response = await this.client.post(`/issue/${issueKey}/comment`, {
       body: textToADF(comment),
     });
+
+    // If attachments are provided, upload them
+    if (attachments && attachments.length > 0) {
+      const uploadedAttachments: AttachmentUpload[] = [];
+
+      for (const filePath of attachments) {
+        try {
+          const uploaded = await this.uploadAttachment(issueKey, filePath);
+          uploadedAttachments.push(...uploaded);
+        } catch (error) {
+          console.error(`Failed to upload attachment ${filePath}:`, error);
+          // Continue with other attachments even if one fails
+        }
+      }
+
+      return {
+        comment: response.data,
+        attachments: uploadedAttachments,
+      };
+    }
+
     return response.data;
   }
 
@@ -453,5 +489,40 @@ export class JiraClient {
       size: metadata.size,
       savedPath: fullPath,
     };
+  }
+
+  async uploadAttachment(issueKey: string, filePath: string): Promise<AttachmentUpload[]> {
+    // Verify file exists
+    if (!fs.existsSync(filePath)) {
+      throw new Error(`File not found: ${filePath}`);
+    }
+
+    // Create form data
+    const form = new FormData();
+    form.append('file', fs.createReadStream(filePath), {
+      filename: path.basename(filePath),
+    });
+
+    // Upload attachment using multipart/form-data
+    const response = await this.client.post(`/issue/${issueKey}/attachments`, form, {
+      headers: {
+        ...form.getHeaders(),
+        'X-Atlassian-Token': 'no-check', // Required header for Jira API
+      },
+    });
+
+    // Map response to AttachmentUpload format
+    return response.data.map((attachment: any) => ({
+      id: attachment.id,
+      filename: attachment.filename,
+      author: {
+        displayName: attachment.author.displayName,
+        emailAddress: attachment.author.emailAddress,
+      },
+      created: attachment.created,
+      size: attachment.size,
+      mimeType: attachment.mimeType,
+      content: attachment.content,
+    }));
   }
 }
